@@ -8,22 +8,22 @@
 # of "Accepted: #42".
 
 # set your Priovtal access token
-PIVOTAL_TOKEN = ""
+PIVOTAL_TOKEN = "<PIVOTAL_MAGIC_STRING>"
 
 # map of Privotal project id and which Gerrit projects this script should run for
 PIVOTAL_PROJECT_IDS_MAP = {
-    "PROJECT_NAME": 123
+    "<GERRIT_PROJECT_NAME>": 123
 }
 
 # the regex we use for findig the issue id
 STATES = ["accepted", "delivered", "finished", "started", "rejected", "unstarted", "unscheduled"]
-ISSUE_ID_REGEX = "(\w{1}) \#(\d+)"
+ISSUE_ID_REGEX = "(\w+):? \#(\d+)"
 
 PIVOTAL_HOST = "www.pivotaltracker.com"
 PIVOTAL_REQUEST_URL = "/services/v5/projects/%d/stories/%d"
 
 import optparse
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 import sys
 import re
 import httplib
@@ -43,18 +43,22 @@ if __name__ == '__main__':
 
     (options, x) = parser.parse_args(sys.argv)
 
-	pivotalprojectid = PIOVTAL_PROJECT_IDS_MAP.get(options.project)
-	if not pivotalprojectid:
-        print "Wrong project %s" % options.project
+    pivotalprojectid = PIVOTAL_PROJECT_IDS_MAP.get(options.project)
+    if not pivotalprojectid:
+        print "Ignoring project '%s'." % options.project
         sys.exit(0)
 
-    commitmsg = check_output(['git','cat-file','-p', options.commit])
-    if not commitmsg or len(commitmsg) < 10:
-        print "No commit msg!"
+    try:
+        commitmsg = check_output(['git','cat-file','-p', options.commit or ''])
+        if not commitmsg or len(commitmsg) < 10:
+            print "No commit msg!"
+            sys.exit(0)
+    except CalledProcessError, e:
+        print "Couldn't get commit message"
         sys.exit(0)
 
     # update status only for the first patchset
-    if int(options.patchset) != 1:
+    if options.patchset and int(options.patchset) != 1:
         msg = "This is not the first patchset (%s) for this issue (%s), will not update the status"
         print msg % (options.patchset, options.changeurl)
         sys.exit(0)
@@ -65,26 +69,26 @@ if __name__ == '__main__':
         pivotalid = int(match.group(2))
         pivotalstate = match.group(1).lower()
 
-		if pivotalstate not in STATES:
-            print "Wrong state %s" % pivotalstate
+        if pivotalstate not in STATES:
+            print "Wrong state %s" % commitmsg
             sys.exit(0)
 
-        if not piovtalid or pivotalid == 0:
+        if not pivotalid or pivotalid == 0:
             print "No issue set here"
             sys.exit(0)
 
         data = {"state": pivotalstate}
         data_json = json.dumps(data)
 
-		headers = {
-		   "Content-Type": "application/json", 
-		   "X-TrackerToken": PRIVOTAL_TOKEN
-  	    }
+        headers = {
+            "Content-Type": "application/json", 
+            "X-TrackerToken": PIVOTAL_TOKEN
+        }
        
-		url = PIOVTAL_URL % (piovtalprojectid, piovtalid)
+        url = PIVOTAL_REQUEST_URL % (pivotalprojectid, pivotalid)
 
         connection = httplib.HTTPSConnection(PIVOTAL_HOST, 443)
         connection.request('PUT', url, data_json, headers)
-        response = connection.getresponse()
-    
-	sys.exit(0)
+        connection.getresponse()
+        
+sys.exit(0)
