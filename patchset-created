@@ -1,0 +1,90 @@
+#!/usr/bin/python2.7
+# -*- coding: utf-8 -*-
+
+# This is a simple Gerrit hook for updating Privotal Tracker with information 
+# about what changes are in Gerrit review.
+#
+# It parses the commit messages from Gerrit and looks for a Redmine issue in the style
+# of "Accepted: #42".
+
+# set your Priovtal access token
+PIVOTAL_TOKEN = ""
+
+# map of Privotal project id and which Gerrit projects this script should run for
+PIVOTAL_PROJECT_IDS_MAP = {
+    "PROJECT_NAME": 123
+}
+
+# the regex we use for findig the issue id
+STATES = ["accepted", "delivered", "finished", "started", "rejected", "unstarted", "unscheduled"]
+ISSUE_ID_REGEX = "(\w{1}) \#(\d+)"
+
+PIVOTAL_HOST = "www.pivotaltracker.com"
+PIVOTAL_REQUEST_URL = "/services/v5/projects/%d/stories/%d"
+
+import optparse
+from subprocess import check_output
+import sys
+import re
+import httplib
+import json
+
+if __name__ == '__main__':
+    parser = optparse.OptionParser()
+    parser.add_option('-c', '--change', dest='changeid')
+    parser.add_option('-u', '--change-url', dest='changeurl')
+    parser.add_option('-p', '--project', dest='project')
+    parser.add_option('-b', '--branch', dest='branch')
+    parser.add_option('-s', '--uploader', dest='uploader')
+    parser.add_option('-o', '--commit', dest='commit')
+    parser.add_option('-a', '--patchset', dest='patchset')
+    parser.add_option('-d', '--is-draft', dest='isdraft')
+    parser.add_option('-t', '--topic', dest='topic')
+
+    (options, x) = parser.parse_args(sys.argv)
+
+	pivotalprojectid = PIOVTAL_PROJECT_IDS_MAP.get(options.project)
+	if not pivotalprojectid:
+        print "Wrong project %s" % options.project
+        sys.exit(0)
+
+    commitmsg = check_output(['git','cat-file','-p', options.commit])
+    if not commitmsg or len(commitmsg) < 10:
+        print "No commit msg!"
+        sys.exit(0)
+
+    # update status only for the first patchset
+    if int(options.patchset) != 1:
+        msg = "This is not the first patchset (%s) for this issue (%s), will not update the status"
+        print msg % (options.patchset, options.changeurl)
+        sys.exit(0)
+
+    pattern = re.compile(ISSUE_ID_REGEX, re.IGNORECASE)
+    matches = pattern.finditer(commitmsg)
+    for match in matches:
+        pivotalid = int(match.group(2))
+        pivotalstate = match.group(1).lower()
+
+		if pivotalstate not in STATES:
+            print "Wrong state %s" % pivotalstate
+            sys.exit(0)
+
+        if not piovtalid or pivotalid == 0:
+            print "No issue set here"
+            sys.exit(0)
+
+        data = {"state": pivotalstate}
+        data_json = json.dumps(data)
+
+		headers = {
+		   "Content-Type": "application/json", 
+		   "X-TrackerToken": PRIVOTAL_TOKEN
+  	    }
+       
+		url = PIOVTAL_URL % (piovtalprojectid, piovtalid)
+
+        connection = httplib.HTTPSConnection(PIVOTAL_HOST, 443)
+        connection.request('PUT', url, data_json, headers)
+        response = connection.getresponse()
+    
+	sys.exit(0)
