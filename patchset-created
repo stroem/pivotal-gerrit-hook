@@ -1,16 +1,16 @@
 #!/usr/bin/python2.7
 # -*- coding: utf-8 -*-
 
-# This is a simple Gerrit hook for updating Privotal Tracker with information 
+# This is a simple Gerrit hook for updating Pivotal Tracker with information 
 # about what changes are in Gerrit review.
 #
-# It parses the commit messages from Gerrit and looks for a Redmine issue in the style
+# It parses the commit messages from Gerrit and looks for a Pivotal issue in the style
 # of "Accepted: #42".
 
-# set your Priovtal access token
+# set your Piovtal access token
 PIVOTAL_TOKEN = "<PIVOTAL_MAGIC_STRING>"
 
-# map of Privotal project id and which Gerrit projects this script should run for
+# map of Pivotal project id and which Gerrit projects this script should run for
 PIVOTAL_PROJECT_IDS_MAP = {
     "<GERRIT_PROJECT_NAME>": 123
 }
